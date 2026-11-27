@@ -9,8 +9,6 @@
     textarea { box-sizing: border-box; display: block; width: 100%; margin: .5rem 0; padding: .5rem; font: inherit; }
     button { padding: .4rem .8rem; font: inherit; }
     pre { white-space: pre-wrap; }
-    .error { color: #b00020; }
-    .hint { color: #555; }
   </style>
 </head>
 <body>
@@ -20,63 +18,18 @@
     <textarea id="message" rows="4"></textarea>
     <button type="submit">Разобрать заявку</button>
   </form>
-
-  <p id="status" class="hint" aria-live="polite"></p>
-  <p>Тема: <strong id="topic">—</strong></p>
-  <p>Черновик:</p>
-  <pre id="draft"></pre>
-
+  <pre id="result" aria-live="polite"></pre>
   <script type="module">
     const form = document.querySelector("form");
-    const statusEl = document.querySelector("#status");
-    const topicEl = document.querySelector("#topic");
-    const draftEl = document.querySelector("#draft");
-    const messageEl = document.querySelector("#message");
-
+    const result = document.querySelector("#result");
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      const text = messageEl.value;
-
-      // очищаем предыдущий результат до запроса
-      topicEl.textContent = "—";
-      draftEl.textContent = "";
-      statusEl.textContent = "";
-      statusEl.className = "hint";
-
-      try {
-        const reply = await fetch("/api/triage", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text }),
-        });
-        const data = await reply.json();
-
-        if (reply.ok && data.status === "ready") {
-          topicEl.textContent = data.topic;
-          draftEl.textContent = data.draft;
-          statusEl.textContent = "Готово к проверке менеджером.";
-          statusEl.className = "hint";
-          return;
-        }
-
-        if (reply.status === 400 && data.status === "invalid_input") {
-          statusEl.textContent = "Введите непустой текст заявки.";
-          statusEl.className = "error";
-          return;
-        }
-
-        if (data.status === "manual_review") {
-          statusEl.textContent = "Не удалось разобрать автоматически. Требуется ручной разбор.";
-          statusEl.className = "error";
-          return;
-        }
-
-        statusEl.textContent = "Неожиданный ответ сервера. Требуется ручной разбор.";
-        statusEl.className = "error";
-      } catch {
-        statusEl.textContent = "Сеть недоступна. Требуется ручной разбор.";
-        statusEl.className = "error";
-      }
+      const reply = await fetch("/api/triage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: document.querySelector("#message").value }),
+      });
+      result.textContent = JSON.stringify(await reply.json(), null, 2);
     });
   </script>
 </body>
