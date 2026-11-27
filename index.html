@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Входящие заявки</title>
+  <style>
+    body { max-width: 40rem; margin: 2rem auto; padding: 0 1rem; font: 1rem/1.5 system-ui, sans-serif; }
+    textarea { box-sizing: border-box; display: block; width: 100%; margin: .5rem 0; padding: .5rem; font: inherit; }
+    button { padding: .4rem .8rem; font: inherit; }
+    pre { white-space: pre-wrap; }
+    .error { color: #b00020; }
+    .hint { color: #555; }
+  </style>
+</head>
+<body>
+  <h1>Входящие заявки</h1>
+  <form>
+    <label for="message">Текст заявки</label>
+    <textarea id="message" rows="4"></textarea>
+    <button type="submit">Разобрать заявку</button>
+  </form>
+
+  <p id="status" class="hint" aria-live="polite"></p>
+  <p>Тема: <strong id="topic">—</strong></p>
+  <p>Черновик:</p>
+  <pre id="draft"></pre>
+
+  <script type="module">
+    const form = document.querySelector("form");
+    const statusEl = document.querySelector("#status");
+    const topicEl = document.querySelector("#topic");
+    const draftEl = document.querySelector("#draft");
+    const messageEl = document.querySelector("#message");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const text = messageEl.value;
+
+      // очищаем предыдущий результат до запроса
+      topicEl.textContent = "—";
+      draftEl.textContent = "";
+      statusEl.textContent = "";
+      statusEl.className = "hint";
+
+      try {
+        const reply = await fetch("/api/triage", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        });
+        const data = await reply.json();
+
+        if (reply.ok && data.status === "ready") {
+          topicEl.textContent = data.topic;
+          draftEl.textContent = data.draft;
+          statusEl.textContent = "Готово к проверке менеджером.";
+          statusEl.className = "hint";
+          return;
+        }
+
+        if (reply.status === 400 && data.status === "invalid_input") {
+          statusEl.textContent = "Введите непустой текст заявки.";
+          statusEl.className = "error";
+          return;
+        }
+
+        if (data.status === "manual_review") {
+          statusEl.textContent = "Не удалось разобрать автоматически. Требуется ручной разбор.";
+          statusEl.className = "error";
+          return;
+        }
+
+        statusEl.textContent = "Неожиданный ответ сервера. Требуется ручной разбор.";
+        statusEl.className = "error";
+      } catch {
+        statusEl.textContent = "Сеть недоступна. Требуется ручной разбор.";
+        statusEl.className = "error";
+      }
+    });
+  </script>
+</body>
+</html>
